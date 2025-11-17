@@ -23,7 +23,7 @@ subscriptable.
 Motivation
 ----------
 
-Currently python clases allow to pass type annotations for generic containers, this 
+Currently python clases allow to pass type annotations for generic containers, this
 is specially usefull in common constructors such as ``list, tuple, dict`` etc.
 
 .. code-block:: python
@@ -44,7 +44,7 @@ we want so ensure that keys are strings and values are intergers:
    NameNumberDict = dict[str,int] # specialized dict
    NameNumberDict([("one", 1), ("two", 2), ("three", "3") ]) # TypeChecker complains
 
-Despite of how usefull is this syntax, when we try to define our own constructor for a 
+Despite of how usefull is this syntax, when we try to define our own constructor for a
 list using a function, the syntax fails as functions are not subscriptable:
 
 .. code-block:: python
@@ -63,21 +63,21 @@ Currently there some work arounds:
 
    # Making your own constructor
    class my_list[T]:
-        def __call__(self, it) -> list[T]: 
+        def __call__(self, it) -> list[T]:
             # do-somthing such as logging
-            return list(it)          
+            return list(it)
 
 - 2. Using the propoused PEP 747 TypeForm, with an extra unused argument:
 
 .. code-block:: python
 
    from typing_extensions import TypeForm
-   
-   def my_list(it, typ: TypeForm[T]) -> list[T]: 
+
+   def my_list(it, typ: TypeForm[T]) -> list[T]:
       # do-somthing such as logging
       return list(it)
 
-As we can see this solution also increases the verbosity, complexity and cognitive load, 
+As we can see this solution also increases the verbosity, complexity and cognitive load,
 moreover most users would need to learn the diferent between type and TypeForm.
 
 - 3. Annotating the assignment:
@@ -88,7 +88,7 @@ moreover most users would need to learn the diferent between type and TypeForm.
 This solution leads to additional verbosity and fewer guarantees than the other alternatives.
 
 In conclusion, the current workarunds feel too complex or to verbose for something that would already
-feel natural very natural and consistent with the language if functions were subscriptable. 
+feel natural very natural and consistent with the language if functions were subscriptable.
 
 In additon to the simple usage there are other functionalities without a clear workaround that wouln't
 require a large refactor.
@@ -103,30 +103,30 @@ For example in a function that accumulates different types:
 
 .. code-block:: python
    from typing import Generator, cast, Protocol, TypeVar
-   
+
    T = TypeVar("T")
-   
+
    class SupportsAdd(Protocol):
        def __add__(self, other: T) -> T: ...
-   
+
    def make_accumulator[T: SupportsAdd]() -> Generator[T, T]:
        """ adds all elemenst using the addition operator """
        acc = yield cast(T, None)
        while True:
            acc += yield acc
 
-   string_accumulator = make_accumulator[str]()  # Generator[str, str] 
-   integer_accumulator = make_accumulator[int]() # Generator[int, int] 
-   list_accumulator= make_accumulator[list]()    # Generator[list, list] 
+   string_accumulator = make_accumulator[str]()  # Generator[str, str]
+   integer_accumulator = make_accumulator[int]() # Generator[int, int]
+   list_accumulator= make_accumulator[list]()    # Generator[list, list]
 
    # which can be used later in a type safe manner:
    next(string_accumulator)
    string_accumulator.send("test_string") # no complains from type checker
    string_accumulator.send("test_string") # bad argument type
 
-Similar examples of this "type Generic specialization" are also desirable for 
-functions where their signature is narrowed to different paths in different 
-parts of the code. 
+Similar examples of this "type Generic specialization" are also desirable for
+functions where their signature is narrowed to different paths in different
+parts of the code.
 
 Another use case would be bounding direclty at the ``.send``
 
@@ -145,14 +145,14 @@ Same exact problems and solutions apply for AsyncGenerators.
 Generic Specializaion
 ^^^^^^^^^^^^^^^^^^^^^
 
-As in the previous example currently we can create generic aliases for different 
+As in the previous example currently we can create generic aliases for different
 speciallized ussages:
 
 .. code-block:: python
    NameNumberDict = dict[str,int]
    NameNumberDict([("one", 1), ("two", 2), ("three", "3") ]) # TypeChecker would complain
 
-This is of course not possible for functions but if allowed we could easily 
+This is of course not possible for functions but if allowed we could easily
 speciallize operations in certain sections of the codebase:
 
 .. code-block:: python
@@ -160,13 +160,13 @@ speciallize operations in certain sections of the codebase:
 
    # in certain part of the code where we work exclusively with complex numbers
    complex_addition = constrained_addition[complex]
-   complex_addition(2,4) # TypeChecker would complain 
+   complex_addition(2,4) # TypeChecker would complain
 
 Unknown Types
 ^^^^^^^^^^^^^
 
 Currently, it is not possible to infer the type parameters to generic functions in
-certain situation. 
+certain situation.
 
 In this example ``T`` cannot currently be meaningfully inferred, so ``x`` is
 untyped without an extra assignment:
@@ -255,13 +255,13 @@ The syntax for such a feature may look something like:
 Rationale
 ---------
 
-The main rational of this proposal is to enhance the consistency of the python typing 
+The main rational of this proposal is to enhance the consistency of the python typing
 system by allowing a syntax that already feels and looks natural with the existing
 syntax for classes.
 
-If accepted this syntax, it will reduce the necesity of the proposed TypeForms 
+If accepted this syntax, it will reduce the necesity of the proposed TypeForms
 on PEP 747,  will lower verbosity and cognitive load of safely typed python and
-will make built-in types like ``Generators`` and ``AsyncGenerators`` type safe in 
+will make built-in types like ``Generators`` and ``AsyncGenerators`` type safe in
 situations that previously required more complex work arounds.
 
 Specification
@@ -336,23 +336,23 @@ This PEP opens the door to overloading based on type variables:
    def serializer_for[T: str]() -> StringSerializer: ...
    @overload
    def serializer_for[T: list]() -> ListSerializer: ...
-   
+
    def serializer_for():
        ...
 
 For overloading resolution a new step will be required previous to any other, where the resolver
-will match only the overloads where the subscription may succeed. For instance 
-if we have an overload make[*Ts], one with make[T], and one with just make, then a call to make[int] 
-will only consider the first and second, and a call to make[int, str] will only consider the first. 
+will match only the overloads where the subscription may succeed. For instance
+if we have an overload make[*Ts], one with make[T], and one with just make, then a call to make[int]
+will only consider the first and second, and a call to make[int, str] will only consider the first.
 
 .. code-block:: python
    @overload
    def make[*Ts]() -> int | float: ...
    @overload
    def make[T]() -> int: ...
-   
+
    def make() -> int | float: ...
-   
+
    make[int]  # matches first and second overload
    make[int, str] # matches only first
 
