@@ -24,33 +24,36 @@ Motivation
 ----------
 
 Currently python clases allow to pass type annotations for generic containers, this
-is specially usefull in common constructors such as ``list, tuple, dict`` etc.
+is specially usefull in common constructors such as ``list``\, `tuple`` and `dict`` etc.
 
 .. code-block:: python
 
    my_integer_list = list[int]()
    reveal_type(my_integer_list)  # type is list[int]
 
-
-
-At runtime ``list[int]`` returns a ``GenericAlias`` that is later evaluated to an
+At runtime ``list[int]`` returns a ``GenericAlias`` that can be later called, returning an
 empty list.
 
-Another example would be creating a specialized dict for a section of our code where
+Another example of this is creating a specialized `dict`` for a section of our code where
 we want so ensure that keys are strings and values are intergers:
 
 .. code-block:: python
 
-   NameNumberDict = dict[str,int] # specialized dict
-   NameNumberDict([("one", 1), ("two", 2), ("three", "3") ]) # TypeChecker complains
+   NameNumberDict = dict[str,int] # specialise the dict
+   
+   NameNumberDict(
+      one=1,
+      two=2,
+      three="3" # TypeError: Literal["3"] is not of type int
+   )
 
-Despite of how usefull is this syntax, when we try to define our own constructor for a
-list using a function, the syntax fails as functions are not subscriptable:
+In spite of the utility of this syntax, when trying to use it with a function,
+the code raises, as functions are not subscriptable.
 
 .. code-block:: python
 
    def my_list[T](arr) -> list[T]:
-      # do-somthing such as logging
+      # do something ...
       return list(arr)
 
    my_integer_list = my_list[int]() # TypeError: 'function' object is not subscriptable
@@ -63,9 +66,9 @@ Currently there some work arounds:
 
    # Making your own constructor
    class my_list[T]:
-        def __call__(self, it) -> list[T]:
-            # do-somthing such as logging
-            return list(it)
+        def __call__(self, *args: T) -> list[T]:
+            # do something ...
+            return list(args)
 
 - 2. Using the propoused PEP 747 TypeForm, with an extra unused argument:
 
@@ -73,12 +76,12 @@ Currently there some work arounds:
 
    from typing_extensions import TypeForm
 
-   def my_list(it, typ: TypeForm[T]) -> list[T]:
-      # do-somthing such as logging
-      return list(it)
+   def my_list(*args: T, typ: TypeForm[T]) -> list[T]:
+      # do  ...
+      return list(args)
 
-As we can see this solution also increases the verbosity, complexity and cognitive load,
-moreover most users would need to learn the diferent between type and TypeForm.
+As we can see this solution also increases the verbosity, complexity and cognitive load.
+additionally, most users would need to learn the difference between ``type` and ```TypeForm``\.
 
 - 3. Annotating the assignment:
 
@@ -87,22 +90,21 @@ moreover most users would need to learn the diferent between type and TypeForm.
 
 This solution leads to additional verbosity and fewer guarantees than the other alternatives.
 
-In conclusion, the current workarunds feel too complex or to verbose for something that would already
-feel natural very natural and consistent with the language if functions were subscriptable.
+In conclusion, the current workarunds feel too complex or verbose, especially compared to syntax that would be consistent with the rest of the language if functions were subscriptable.
 
-In additon to the simple usage there are other functionalities without a clear workaround that wouln't
+In additon, to the simple usage there are other functionalities without a clear workaround that wouln't
 require a large refactor.
 
 Generators
 ^^^^^^^^^^
 
-Generators would benefit inmensely from this feature as they can't be properly typed in many scenarios,
-specially when they make use of the method ``.send``:
+Generators would benefit immensely from this feature as they can't be properly typed in many scenarios. This occurs because when having generic types the ``send`` and ``yield`` type are often undefined till the generator is used.
 
 For example in a function that accumulates different types:
 
 .. code-block:: python
-   from typing import Generator, cast, Protocol, TypeVar
+   from typing import cast, Protocol, TypeVar
+   from collections.abc import Generator
 
    T = TypeVar("T")
 
@@ -110,25 +112,24 @@ For example in a function that accumulates different types:
        def __add__(self, other: T) -> T: ...
 
    def make_accumulator[T: SupportsAdd]() -> Generator[T, T]:
-       """ adds all elemenst using the addition operator """
+       """ Adds all elements using the addition operator """
        acc = yield cast(T, None)
        while True:
            acc += yield acc
 
    string_accumulator = make_accumulator[str]()  # Generator[str, str]
    integer_accumulator = make_accumulator[int]() # Generator[int, int]
-   list_accumulator= make_accumulator[list]()    # Generator[list, list]
 
    # which can be used later in a type safe manner:
    next(string_accumulator)
    string_accumulator.send("test_string") # no complains from type checker
    string_accumulator.send("test_string") # bad argument type
 
-Similar examples of this "type Generic specialization" are also desirable for
+Similar examples of this "type Generic specialisation" are also desirable for
 functions where their signature is narrowed to different paths in different
 parts of the code.
 
-Another use case would be bounding direclty at the ``.send``
+Another use case could be to make the ``.send`` method generic via subscription.
 
    def log_and_yield[T: SupportsAdd](log: Callable) -> Generator[T, T]:
        value = yield cast(T, None)
@@ -255,14 +256,12 @@ The syntax for such a feature may look something like:
 Rationale
 ---------
 
-The main rational of this proposal is to enhance the consistency of the python typing
-system by allowing a syntax that already feels and looks natural with the existing
-syntax for classes.
+This proposal improves the consistency of the type system by allowing a syntax
+that already looks and feels natural with the existing syntax for classes.
 
-If accepted this syntax, it will reduce the necesity of the proposed TypeForms
-on PEP 747,  will lower verbosity and cognitive load of safely typed python and
+If accepted this syntax, it will reduce the necessity of ``TypeForm`` in :pep:`747`,  will lower verbosity and cognitive load of safely typed python and
 will make built-in types like ``Generators`` and ``AsyncGenerators`` type safe in
-situations that previously required more complex work arounds.
+situations that previously required more complex workarounds.
 
 Specification
 -------------
@@ -330,8 +329,7 @@ Interactions with ``@typing.overload``
 This PEP opens the door to overloading based on type variables:
 
 .. code-block:: python
-   @overload
-   def serializer_for[T: int]() -> IntSerializer: ...
+
    @overload
    def serializer_for[T: str]() -> StringSerializer: ...
    @overload
