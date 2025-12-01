@@ -40,7 +40,7 @@ we want so ensure that keys are strings and values are intergers:
 .. code-block:: python
 
    NameNumberDict = dict[str,int] # specialise the dict
-   
+
    NameNumberDict(
       one=1,
       two=2,
