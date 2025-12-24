@@ -1,6 +1,6 @@
 PEP: 718
 Title: Subscriptable functions
-Author: James Hilton-Balfe <gobot1234yt@gmail.com>
+Author: James Hilton-Balfe <gobot1234yt@gmail.com>, Pablo Ruiz Cuevas <pablo.r.c@live.com>
 Sponsor: Guido van Rossum <guido@python.org>
 Discussions-To: https://discuss.python.org/t/28457/
 Status: Draft
@@ -17,102 +17,105 @@ This PEP proposes making function objects subscriptable for typing purposes. Doi
 gives developers explicit control over the types produced by the type checker where
 bi-directional inference (which allows for the types of parameters of anonymous
 functions to be inferred) and other methods than specialisation are insufficient. It
-also brings consitency to functions when compared to regular classes in their ability to be
-subscriptable.
+also makes functions consistent with regular classes in their ability to be
+subscripted.
 
 Motivation
 ----------
 
-Currently python clases allow to pass type annotations for generic containers, this
-is specially usefull in common constructors such as ``list``\, `tuple`` and `dict`` etc.
+Currently, classes allow passing type annotations for generic containers, this
+is especially useful in common constructors such as ``list``\, ``tuple`` and ``dict``
+etc.
 
 .. code-block:: python
 
    my_integer_list = list[int]()
    reveal_type(my_integer_list)  # type is list[int]
 
-At runtime ``list[int]`` returns a ``GenericAlias`` that can be later called, returning an
-empty list.
+At runtime ``list[int]`` returns a ``GenericAlias`` that can be later called, returning
+an empty list.
 
-Another example of this is creating a specialized `dict`` for a section of our code where
-we want so ensure that keys are strings and values are intergers:
+Another example of this is creating a specialised ``dict`` type for a section of our
+code where we want to ensure that keys are ``str`` and values are ``int``:
 
 .. code-block:: python
 
-   NameNumberDict = dict[str,int] # specialise the dict
+   NameNumberDict = dict[str, int]
 
    NameNumberDict(
       one=1,
       two=2,
-      three="3" # TypeError: Literal["3"] is not of type int
+      three="3"  # Invalid: Literal["3"] is not of type int
    )
 
-In spite of the utility of this syntax, when trying to use it with a function,
-the code raises, as functions are not subscriptable.
+In spite of the utility of this syntax, when trying to use it with a function, an error
+is raised, as functions are not subscriptable.
 
 .. code-block:: python
 
    def my_list[T](arr) -> list[T]:
-      # do something ...
+      # do something...
       return list(arr)
 
-   my_integer_list = my_list[int]() # TypeError: 'function' object is not subscriptable
+   my_integer_list = my_list[int]()  # TypeError: 'function' object is not subscriptable
 
-Currently there some work arounds:
+There are a few workarounds:
 
-- 1. Making a callable class:
+1. Making a callable class:
 
 .. code-block:: python
 
-   # Making your own constructor
    class my_list[T]:
         def __call__(self, *args: T) -> list[T]:
-            # do something ...
+            # do something...
             return list(args)
 
-- 2. Using the propoused PEP 747 TypeForm, with an extra unused argument:
+2. Using :pep:`747`\'s TypeForm, with an extra unused argument:
 
 .. code-block:: python
 
    from typing_extensions import TypeForm
 
    def my_list(*args: T, typ: TypeForm[T]) -> list[T]:
-      # do  ...
+      # do something...
       return list(args)
 
-As we can see this solution also increases the verbosity, complexity and cognitive load.
-additionally, most users would need to learn the difference between ``type` and ```TypeForm``\.
+As we can see this solution increases the complexity with an extra argument.
+Additionally it requires the user to understand a new concept ``TypeForm``.
 
-- 3. Annotating the assignment:
+3. Annotating the assignment:
 
 .. code-block:: python
+
    my_integer_list: list[int] = my_list()
 
-This solution leads to additional verbosity and fewer guarantees than the other alternatives.
+This solution isn't optimal as the return type is repeated and is more verbose and
+would require the type updating in multiple places if the return type changes.
 
-In conclusion, the current workarunds feel too complex or verbose, especially compared to syntax that would be consistent with the rest of the language if functions were subscriptable.
+In conclusion, the current workarounds are too complex or verbose, especially compared
+to syntax that is consistent with the rest of the language.
 
-In additon, to the simple usage there are other functionalities without a clear workaround that wouln't
-require a large refactor.
+In addition, to the simple usage there are other functionalities without a clear
+workaround that wouldn't require a large refactor.
 
 Generators
 ^^^^^^^^^^
 
-Generators would benefit immensely from this feature as they can't be properly typed in many scenarios. This occurs because when having generic types the ``send`` and ``yield`` type are often undefined till the generator is used.
+Generators would benefit immensely from this feature as they can't be properly typed in
+many scenarios. This occurs because when having generic types the ``send`` and
+``yield`` type are often undefined till the generator is used.
 
 For example in a function that accumulates different types:
 
 .. code-block:: python
-   from typing import cast, Protocol, TypeVar
-   from collections.abc import Generator
 
    T = TypeVar("T")
 
    class SupportsAdd(Protocol):
-       def __add__(self, other: T) -> T: ...
+       def __iadd__(self, other: T) -> T: ...
 
    def make_accumulator[T: SupportsAdd]() -> Generator[T, T]:
-       """ Adds all elements using the addition operator """
+       """Adds all elements using the addition operator"""
        acc = yield cast(T, None)
        while True:
            acc += yield acc
@@ -129,7 +132,9 @@ Similar examples of this "type Generic specialisation" are also desirable for
 functions where their signature is narrowed to different paths in different
 parts of the code.
 
-Another use case could be to make the ``.send`` method generic via subscription.
+Another use case could be to make the ``send()`` method generic via subscription.
+
+.. code-block:: python
 
    def log_and_yield[T: SupportsAdd](log: Callable) -> Generator[T, T]:
        value = yield cast(T, None)
@@ -143,31 +148,33 @@ Another use case could be to make the ``.send`` method generic via subscription.
 
 Same exact problems and solutions apply for AsyncGenerators.
 
-Generic Specializaion
-^^^^^^^^^^^^^^^^^^^^^
+Generic Specialisation
+^^^^^^^^^^^^^^^^^^^^^^
 
 As in the previous example currently we can create generic aliases for different
-speciallized ussages:
+specialised usages:
 
 .. code-block:: python
-   NameNumberDict = dict[str,int]
-   NameNumberDict([("one", 1), ("two", 2), ("three", "3") ]) # TypeChecker would complain
 
-This is of course not possible for functions but if allowed we could easily
-speciallize operations in certain sections of the codebase:
+   NameNumberDict = dict[str, int]
+   NameNumberDict(one=1, two=2, three="3")  # Invalid: Literal["3"] is not of type int``
+
+This not currently possible for functions but if allowed we could easily
+specialise operations in certain sections of the codebase:
 
 .. code-block:: python
-   def constrained_addition[T](a: T,b: T) -> T: ...
 
-   # in certain part of the code where we work exclusively with complex numbers
-   complex_addition = constrained_addition[complex]
-   complex_addition(2,4) # TypeChecker would complain
+   def constrained_addition[T](a: T, b: T) -> T: ...
+
+   # where we work exclusively with ints
+   int_addition = constrained_addition[int]
+   int_addition(2, 4+8j)  # Invalid: complex is not of type int
 
 Unknown Types
 ^^^^^^^^^^^^^
 
 Currently, it is not possible to infer the type parameters to generic functions in
-certain situation.
+certain situations.
 
 In this example ``T`` cannot currently be meaningfully inferred, so ``x`` is
 untyped without an extra assignment:
@@ -187,8 +194,8 @@ If function objects were subscriptable, however, a more specific type could be g
 Undecidable Inference and Type Narrowing
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-There are cases where subclass relations make type inference impossible. However,
-if you can specialise the function type checkers can infer a meaningful type.
+There are cases where subclass relations make type inference impossible. However, if
+you can specialise the function type checkers can infer a meaningful type.
 
 .. code-block:: python
 
@@ -256,11 +263,12 @@ The syntax for such a feature may look something like:
 Rationale
 ---------
 
-This proposal improves the consistency of the type system by allowing a syntax
-that already looks and feels natural with the existing syntax for classes.
+This proposal improves the consistency of the type system, by allowing syntax that
+already looks and feels like a natural of the existing syntax for classes.
 
-If accepted this syntax, it will reduce the necessity of ``TypeForm`` in :pep:`747`,  will lower verbosity and cognitive load of safely typed python and
-will make built-in types like ``Generators`` and ``AsyncGenerators`` type safe in
+If accepted, this syntax will reduce the necessity to learn about :pep:`747`\s
+``TypeForm``,  reduce verbosity and cognitive load of safely typed python and
+make built-in types like ``Generators`` and ``AsyncGenerators`` type safe in
 situations that previously required more complex workarounds.
 
 Specification
@@ -338,21 +346,18 @@ This PEP opens the door to overloading based on type variables:
    def serializer_for():
        ...
 
-For overloading resolution a new step will be required previous to any other, where the resolver
-will match only the overloads where the subscription may succeed. For instance
-if we have an overload make[*Ts], one with make[T], and one with just make, then a call to make[int]
-will only consider the first and second, and a call to make[int, str] will only consider the first.
+For overload resolution a new step will be required previous to any other, where the resolver
+will match only the overloads where the subscription may succeed.
 
 .. code-block:: python
+
    @overload
-   def make[*Ts]() -> int | float: ...
+   def make[*Ts]() -> float: ...
    @overload
    def make[T]() -> int: ...
 
-   def make() -> int | float: ...
-
    make[int]  # matches first and second overload
-   make[int, str] # matches only first
+   make[int, str]  # matches only first
 
 
 Functions Parameterized by ``TypeVarTuple``\ s
